@@ -1,0 +1,9 @@
+langchain
+huggingface_hub
+openai
+google-search-results
+tiktoken
+cohere
+langchain_community
+langchain-openai
+python-dotenv
