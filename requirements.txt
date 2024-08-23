@@ -7,3 +7,5 @@ cohere
 langchain_community
 langchain-openai
 python-dotenv
+langchain_core
+semantic-router
