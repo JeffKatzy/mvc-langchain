@@ -1,32 +1,22 @@
 
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import ConfigurableFieldSpec
 from langchain_core.runnables.history import RunnableWithMessageHistory
 
 from agent import llm
 from model import GeneralResponse, IFSPart
-from prompt import general_message_prompt, next_message_prompt
+from prompt import general_message_prompt
 from store import get_session_history
 
 
-def get_next_step_for(obj):
-    if next_field := obj.get_next_field():
-        return obj.render(next_field)
-
-def build_next_message_for(next_step = ""):
-    next_message_chain = build_message_chain(next_message_prompt, "input")
-    res = next_message_chain.invoke(
-            {"input": next_step},
-            config={"configurable": {"user_id": "123", "conversation_id": "1"}}
-    )
-    return res
-
-def build_general_message(text_input):
-    message_chain = build_message_chain(general_message_prompt, "input")
-    res = message_chain.invoke(input = {'input': text_input},
-            config={"configurable": {"user_id": "123", "conversation_id": "1"}}
-    )
-    return res
+async def invoke_message_from(prompt, input_message):
+        chain = build_message_chain(prompt, "input")
+        str_chain = chain | StrOutputParser()
+        async for chunk in str_chain.astream(
+            {"input": input_message},
+            config={"configurable": {"user_id": "123", "conversation_id": "1"}}):
+            yield chunk
 
 def build_message_chain(prompt, messages_key):
     info_gathering_chain = prompt | llm

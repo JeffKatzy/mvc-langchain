@@ -1,58 +1,52 @@
-from form_checker import (build_general_message, build_next_message_for,
-                          get_next_step_for)
-from model import IFSPart
+import asyncio
+
+from form_checker import invoke_message_from
+from model import IFSPart, IFSWorkflow
 from obj_updater import merge, parse_details
-from router import build_route_layer
+from prompt import general_message_prompt
 from store import get_session_history
 
 
-class WorkflowRunner():
-    def __init__(self, obj):
-        self.obj = obj
-        
-    def get_next_message(self):
-        next_step = get_next_step_for(self.obj)
-        ai_response = build_next_message_for(next_step)
-        return ai_response
-
-    def get_general_message(self):
-        return build_general_message()
-        
-
-
 class Server:
-    def __init__(self):
-        # self.categorize = build_route_layer()
-        self.workflow_runners = [WorkflowRunner(IFSPart())]
+    def __init__(self, workflows):
+        self.workflows = workflows
 
     def current_workflow(self):
-        return self.workflow_runners[-1]
+        return self.workflows[-1]
+    
+    async def stream_content(self, system_prompt, message_text):
+        chunks = []
+        async for chunk in invoke_message_from(system_prompt, message_text):
+            chunks.append(chunk)
+            print(chunk, end="", flush=True)
+
+    def route_from(self, text_input):
+        output_json = parse_details(text_input)[0]
+        if output_json['type'] == 'GeneralResponse':
+            asyncio.run(self.stream_content(general_message_prompt, text_input))
+        else:
+            workflow = self.current_workflow()
+            current_model = workflow.model
+            workflow._model = merge(current_model, output_json['args'])
+            message_text = workflow.get_next_prompt()
+            asyncio.run(self.stream_content(workflow.prompt(), message_text))
+
+            
 
     def listen(self):
         ai_text = "Hey there."
+        print(ai_text)
         while True:
-            self.log()
-            text_input = input(ai_text)
+            text_input = input("\n\nMe: ")
+            print("\nBot:")
             ai_text = self.route_from(text_input)
-            
-    def route_from(self, text_input):
-        output_json = parse_details(text_input)[0]
 
-        if output_json['type'] == 'GeneralResponse':
-            ai_message = build_general_message(text_input)
-            return ai_message.content
-        else:
-            self.workflow_runner = self.current_workflow()
-            current_obj = self.workflow_runner.obj
-            self.workflow_runner.obj = merge(current_obj, output_json['args'])
-            ai_message = self.workflow_runner.get_next_message()
-            return ai_message.content
+    # def log(self):
+    #     history = get_session_history(**{"user_id": "123", "conversation_id": "1"})
+    #     print(history.messages[-2:])
 
-    def log(self):
-        history = get_session_history(**{"user_id": "123", "conversation_id": "1"})
-        print(history.messages[-2:])
-
-server = Server()
+workflows = [ IFSWorkflow(IFSPart()) ]
+server = Server(workflows)
 server.listen()
 
     
