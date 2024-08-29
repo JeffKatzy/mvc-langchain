@@ -12,7 +12,7 @@ To run:
 * `pip3 install -r requirements.txt`
 * `mv .env.example .env`
 * Add your openai api key
-* python3 -i console.py
+* `python3 -i console.py`
 
 Todo:
 
